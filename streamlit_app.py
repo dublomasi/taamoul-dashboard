@@ -1,32 +1,40 @@
-
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 
-# Load data from Google Sheets
+# Load live Google Sheet data
 sheet_url = "https://docs.google.com/spreadsheets/d/1-Ggb6dpLnG708qdp_498uWE3XUpQYIh8f7WBrvPJGEY/export?format=csv"
 df = pd.read_csv(sheet_url)
 
-st.set_page_config(page_title="Taamoul HQ Dashboard", layout="wide")
-
+# Page settings
+st.set_page_config(page_title="Taamoul HQ - YouTube Comment Agent", layout="centered")
 st.title("Taamoul HQ - YouTube Comment Agent")
 
-# Summary metrics
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Comments", len(df))
-col2.metric("Positive Sentiment", df[df["Sentiment"] == "Positive"].shape[0])
-col3.metric("Pending Replies", df[df["Status"] == "Pending"].shape[0])
+# Basic Metrics
+total_comments = len(df)
+positive_comments = len(df[df['Sentiment'].str.lower() == 'positive'])
+pending_replies = df['Suggested Reply'].isna().sum()
 
-# Pie chart: Sentiment Breakdown
+st.metric("Total Comments", total_comments)
+st.metric("Positive Sentiment", positive_comments)
+st.metric("Pending Replies", pending_replies)
+
+# Divider
+st.markdown("---")
+
+# Sentiment Distribution Chart
 st.subheader("Sentiment Distribution")
-fig_sentiment = px.pie(df, names="Sentiment", title="Overall Sentiment")
-st.plotly_chart(fig_sentiment, use_container_width=True)
+sentiment_counts = df['Sentiment'].value_counts()
 
-# Bar chart: Reply Status
-st.subheader("Reply Status Overview")
-fig_status = px.histogram(df, x="Status", color="Status", title="Reply Status Count")
-st.plotly_chart(fig_status, use_container_width=True)
+fig, ax = plt.subplots()
+colors = ['#4caf50', '#2196f3', '#f44336']  # Green, Blue, Red
+sentiment_counts.plot.pie(autopct='%1.1f%%', colors=colors, ax=ax)
+ax.set_ylabel('')  # Hide y-label
+st.pyplot(fig)
 
-# Data Table
-st.subheader("Comment Log")
-st.dataframe(df)
+# Divider
+st.markdown("---")
+
+# Optional: Show Table of Comments
+with st.expander("View All Comments"):
+    st.dataframe(df[['Comment', 'Sentiment', 'Suggested Reply']])
