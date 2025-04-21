@@ -18,44 +18,41 @@ sheet_url = "https://docs.google.com/spreadsheets/d/1-Ggb6dpLnG708qdp_498uWE3XUp
 try:
     df = pd.read_csv(sheet_url)
 
-    # Clean up headers
+    # Clean headers
     df.columns = df.columns.str.strip()
     df.columns = df.columns.str.encode("utf-8").str.decode("utf-8")
-    df.rename(columns=lambda x: x.strip(), inplace=True)
 
     st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     st.markdown("**Detected columns:**")
     st.code(df.columns.tolist())
 
-    # Get columns safely
-    comment_col = df.get("Comment")
-    sentiment_col = df.get("Sentiment")
-    reply_col = df.get("Suggested Reply")
-    playlist_col = df.get("Playlist")
-    language_col = df.get("Language")
+    # Define original columns
+    original_df = df.copy()
 
-    # Filters
-    if playlist_col is not None:
-        playlist = st.selectbox("Filter by Playlist:", ["All"] + sorted(playlist_col.dropna().unique()))
-        if playlist != "All":
-            df = df[playlist_col == playlist]
+    # Optional Filters
+    if "Playlist" in df.columns:
+        playlist_options = ["All"] + sorted(df["Playlist"].dropna().unique())
+        selected_playlist = st.selectbox("Filter by Playlist", playlist_options)
+        if selected_playlist != "All":
+            df = df[df["Playlist"].astype(str) == selected_playlist]
 
-    if language_col is not None:
-        language = st.selectbox("Filter by Language:", ["All"] + sorted(language_col.dropna().unique()))
-        if language != "All":
-            df = df[language_col == language]
+    if "Language" in df.columns:
+        language_options = ["All"] + sorted(df["Language"].dropna().unique())
+        selected_language = st.selectbox("Filter by Language", language_options)
+        if selected_language != "All":
+            df = df[df["Language"].astype(str) == selected_language]
 
     # Metrics
     st.metric("Total Comments", len(df))
 
-    if sentiment_col is not None:
-        pos_count = sentiment_col.astype(str).str.lower().eq("positive").sum()
+    if "Sentiment" in df.columns:
+        pos_count = df["Sentiment"].astype(str).str.lower().eq("positive").sum()
         st.metric("Positive Sentiment", pos_count)
     else:
         st.warning("Missing column: 'Sentiment'")
 
-    if reply_col is not None:
-        pending = reply_col.isna().sum()
+    if "Suggested Reply" in df.columns:
+        pending = df["Suggested Reply"].isna().sum()
         st.metric("Pending Replies", pending)
     else:
         st.warning("Missing column: 'Suggested Reply'")
@@ -63,10 +60,10 @@ try:
     st.markdown("---")
 
     # Pie Chart
-    if sentiment_col is not None:
+    if "Sentiment" in df.columns:
         st.subheader("Sentiment Distribution")
         fig, ax = plt.subplots()
-        sentiment_col.value_counts().plot.pie(
+        df["Sentiment"].value_counts().plot.pie(
             autopct="%1.1f%%", startangle=90, counterclock=False, ax=ax
         )
         ax.set_ylabel("")
@@ -78,17 +75,11 @@ try:
 
     # Data Table
     with st.expander("View Comments"):
-        cols_to_show = []
-        if comment_col is not None: cols_to_show.append("Comment")
-        if sentiment_col is not None: cols_to_show.append("Sentiment")
-        if reply_col is not None: cols_to_show.append("Suggested Reply")
-        if playlist_col is not None: cols_to_show.append("Playlist")
-        if language_col is not None: cols_to_show.append("Language")
-
+        cols_to_show = [c for c in ["Comment", "Sentiment", "Suggested Reply", "Playlist", "Language"] if c in df.columns]
         if cols_to_show:
             st.dataframe(df[cols_to_show])
         else:
-            st.info("No viewable columns.")
+            st.info("No viewable columns available.")
 
 except Exception as e:
     st.error("❌ Could not load or parse the Google Sheet.")
