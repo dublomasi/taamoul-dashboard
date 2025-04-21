@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# Configure page
+# Streamlit settings
 st.set_page_config(page_title="Taamoul HQ Dashboard", layout="centered")
 
 # Logo
@@ -14,20 +14,25 @@ st.markdown(
 
 st.title("Taamoul HQ – YouTube Comment Agent")
 
-# Google Sheet CSV export link
+# Live Google Sheets CSV export link
 sheet_url = "https://docs.google.com/spreadsheets/d/1-Ggb6dpLnG708qdp_498uWE3XUpQYIh8f7WBrvPJGEY/export?format=csv"
 
 try:
     df = pd.read_csv(sheet_url)
-    df.columns = df.columns.str.strip()  # Ensure column names are clean
+
+    # Clean column headers
+    df.columns = df.columns.str.strip()
+    df.columns = df.columns.str.encode('utf-8').str.decode('utf-8')
+    df.rename(columns=lambda x: x.strip(), inplace=True)
+
+    # Debug: Show actual loaded column names
+    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    st.write("Loaded Columns:", df.columns.tolist())  # DEBUG LINE
 
     if df.empty:
         st.warning("⚠️ The Google Sheet loaded but has no data.")
     else:
-        # Timestamp
-        st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-        # Optional filters
+        # Filters
         if "Playlist" in df.columns:
             playlist = st.selectbox("Filter by Playlist:", ["All"] + sorted(df["Playlist"].dropna().unique()))
             if playlist != "All":
@@ -53,13 +58,18 @@ try:
         st.subheader("Sentiment Distribution")
         sentiment_counts = df["Sentiment"].value_counts()
         fig, ax = plt.subplots()
-        sentiment_counts.plot.pie(autopct='%1.1f%%', startangle=90, counterclock=False, ax=ax)
+        sentiment_counts.plot.pie(
+            autopct='%1.1f%%',
+            startangle=90,
+            counterclock=False,
+            ax=ax
+        )
         ax.set_ylabel('')
         st.pyplot(fig)
 
         st.markdown("---")
 
-        # Expandable data table
+        # Comment Table
         with st.expander("View All Comments"):
             preview_cols = ["Comment", "Sentiment", "Suggested Reply"]
             if "Playlist" in df.columns:
