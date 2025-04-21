@@ -18,70 +18,77 @@ sheet_url = "https://docs.google.com/spreadsheets/d/1-Ggb6dpLnG708qdp_498uWE3XUp
 try:
     df = pd.read_csv(sheet_url)
 
-    # Clean columns
+    # Clean up headers
     df.columns = df.columns.str.strip()
-    df.columns = df.columns.str.encode('utf-8').str.decode('utf-8')
+    df.columns = df.columns.str.encode("utf-8").str.decode("utf-8")
+    df.rename(columns=lambda x: x.strip(), inplace=True)
 
-    # Show current time and columns
     st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     st.markdown("**Detected columns:**")
     st.code(df.columns.tolist())
 
-    # Define available columns
-    cols = df.columns.tolist()
-    has = lambda name: name in cols
+    # Get columns safely
+    comment_col = df.get("Comment")
+    sentiment_col = df.get("Sentiment")
+    reply_col = df.get("Suggested Reply")
+    playlist_col = df.get("Playlist")
+    language_col = df.get("Language")
 
-    # Optional filters
-    if has("Playlist"):
-        playlist_options = ["All"] + sorted(df["Playlist"].dropna().unique())
-        selected = st.selectbox("Filter by Playlist", playlist_options)
-        if selected != "All":
-            df = df[df["Playlist"] == selected]
+    # Filters
+    if playlist_col is not None:
+        playlist = st.selectbox("Filter by Playlist:", ["All"] + sorted(playlist_col.dropna().unique()))
+        if playlist != "All":
+            df = df[playlist_col == playlist]
 
-    if has("Language"):
-        lang_options = ["All"] + sorted(df["Language"].dropna().unique())
-        selected = st.selectbox("Filter by Language", lang_options)
-        if selected != "All":
-            df = df[df["Language"] == selected]
+    if language_col is not None:
+        language = st.selectbox("Filter by Language:", ["All"] + sorted(language_col.dropna().unique()))
+        if language != "All":
+            df = df[language_col == language]
 
     # Metrics
     st.metric("Total Comments", len(df))
 
-    if has("Sentiment"):
-        pos_count = df["Sentiment"].astype(str).str.lower().eq("positive").sum()
+    if sentiment_col is not None:
+        pos_count = sentiment_col.astype(str).str.lower().eq("positive").sum()
         st.metric("Positive Sentiment", pos_count)
     else:
-        st.warning("No 'Sentiment' column found.")
+        st.warning("Missing column: 'Sentiment'")
 
-    if has("Suggested Reply"):
-        missing_replies = df["Suggested Reply"].isna().sum()
-        st.metric("Pending Replies", missing_replies)
+    if reply_col is not None:
+        pending = reply_col.isna().sum()
+        st.metric("Pending Replies", pending)
     else:
-        st.warning("No 'Suggested Reply' column found.")
+        st.warning("Missing column: 'Suggested Reply'")
 
     st.markdown("---")
 
-    # Chart
-    if has("Sentiment"):
+    # Pie Chart
+    if sentiment_col is not None:
         st.subheader("Sentiment Distribution")
         fig, ax = plt.subplots()
-        df["Sentiment"].value_counts().plot.pie(
+        sentiment_col.value_counts().plot.pie(
             autopct="%1.1f%%", startangle=90, counterclock=False, ax=ax
         )
         ax.set_ylabel("")
         st.pyplot(fig)
     else:
-        st.info("Sentiment column missing — chart skipped.")
+        st.info("No sentiment data to show chart.")
 
     st.markdown("---")
 
-    # Comments Table
+    # Data Table
     with st.expander("View Comments"):
-        view_cols = [c for c in ["Comment", "Sentiment", "Suggested Reply", "Playlist", "Language"] if has(c)]
-        if view_cols:
-            st.dataframe(df[view_cols])
+        cols_to_show = []
+        if comment_col is not None: cols_to_show.append("Comment")
+        if sentiment_col is not None: cols_to_show.append("Sentiment")
+        if reply_col is not None: cols_to_show.append("Suggested Reply")
+        if playlist_col is not None: cols_to_show.append("Playlist")
+        if language_col is not None: cols_to_show.append("Language")
+
+        if cols_to_show:
+            st.dataframe(df[cols_to_show])
         else:
-            st.info("No viewable columns available.")
+            st.info("No viewable columns.")
 
 except Exception as e:
     st.error("❌ Could not load or parse the Google Sheet.")
