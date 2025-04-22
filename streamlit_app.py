@@ -1,99 +1,52 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from datetime import datetime
+# Optional: only enable if matplotlib is installed
+# import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Taamoul HQ Dashboard", layout="centered")
+# ====== Layout & Branding ======
 
-# Logo
-st.markdown(
-    "<div style='text-align: center;'><img src='https://i.ibb.co/t3P8ktJ/taamoul-logo.png' width='160'></div>",
-    unsafe_allow_html=True
-)
+st.set_page_config(page_title="Taamoul HQ", layout="wide")
+
+# Logo (local image file)
+st.image("assets/taamoul-logo.png", width=150)
 
 st.title("Taamoul HQ – YouTube Comment Agent")
+st.caption("Last updated: 2025-04-22 03:49:55")
 
-sheet_url = "https://docs.google.com/spreadsheets/d/1-Ggb6dpLnG708qdp_498uWE3XUpQYIh8f7WBrvPJGEY/export?format=csv"
+# ====== Load Data ======
 
-try:
-    df = pd.read_csv(sheet_url)
+# You can replace this with your actual data source
+df = pd.read_csv("comments.csv")  # or any other source
 
-    df.columns = df.columns.str.strip()
-    df.columns = df.columns.str.encode("utf-8").str.decode("utf-8")
+# ====== Detected Columns Display ======
+st.markdown("### Detected columns:")
+st.code(list(df.columns))
 
-    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    st.markdown("**Detected columns:**")
-    st.code(df.columns.tolist())
+# ====== Filters ======
+col1, col2 = st.columns(2)
+with col1:
+    playlist_filter = st.selectbox("Filter by Playlist", ["All"] + sorted(df["Playlist"].unique().tolist()))
+with col2:
+    lang_filter = st.selectbox("Filter by Language", ["All"] + sorted(df["Language"].unique().tolist()))
 
-    # Safe columns
-    playlist_col = df.get("Playlist")
-    language_col = df.get("Language")
-    sentiment_col = df.get("Sentiment")
-    reply_col = df.get("Suggested Reply")
-    comment_col = df.get("Comment")
+filtered_df = df.copy()
+if playlist_filter != "All":
+    filtered_df = filtered_df[filtered_df["Playlist"] == playlist_filter]
+if lang_filter != "All":
+    filtered_df = filtered_df[filtered_df["Language"] == lang_filter]
 
-    # Filters
-    if playlist_col is not None:
-        selected_playlist = st.selectbox("Filter by Playlist", ["All"] + sorted(playlist_col.dropna().unique()))
-        if selected_playlist != "All":
-            df = df[playlist_col == selected_playlist]
+# ====== Display Data ======
+st.markdown("### Filtered Comments")
+st.dataframe(filtered_df, use_container_width=True)
 
-    if language_col is not None:
-        selected_language = st.selectbox("Filter by Language", ["All"] + sorted(language_col.dropna().unique()))
-        if selected_language != "All":
-            df = df[language_col == selected_language]
+# ====== Optional Sentiment Chart ======
+# Uncomment after matplotlib is installed
+# sentiment_counts = filtered_df["Sentiment"].value_counts()
+# fig, ax = plt.subplots()
+# sentiment_counts.plot(kind="bar", ax=ax, color="skyblue")
+# ax.set_title("Sentiment Breakdown")
+# st.pyplot(fig)
 
-    # Metrics
-    st.metric("Total Comments", len(df))
-
-    if sentiment_col is not None:
-        pos_count = sentiment_col.astype(str).str.lower().eq("positive").sum()
-        st.metric("Positive Sentiment", pos_count)
-    else:
-        st.warning("Missing 'Sentiment' column")
-
-    if reply_col is not None:
-        missing_replies = reply_col.isna().sum()
-        st.metric("Pending Replies", missing_replies)
-    else:
-        st.warning("Missing 'Suggested Reply' column")
-
-    st.markdown("---")
-
-    # Pie Chart
-    if sentiment_col is not None:
-        st.subheader("Sentiment Distribution")
-        fig, ax = plt.subplots()
-        sentiment_col.value_counts().plot.pie(
-            autopct="%1.1f%%", startangle=90, counterclock=False, ax=ax
-        )
-        ax.set_ylabel("")
-        st.pyplot(fig)
-    else:
-        st.info("No sentiment data available for chart.")
-
-    st.markdown("---")
-
-    # Data Table
-    with st.expander("View Comments"):
-        display = {}
-        if comment_col is not None:
-            display["Comment"] = comment_col
-        if sentiment_col is not None:
-            display["Sentiment"] = sentiment_col
-        if reply_col is not None:
-            display["Suggested Reply"] = reply_col
-        if playlist_col is not None:
-            display["Playlist"] = playlist_col
-        if language_col is not None:
-            display["Language"] = language_col
-
-        if display:
-            result_df = pd.DataFrame(display)
-            st.dataframe(result_df)
-        else:
-            st.info("No columns available to show.")
-
-except Exception as e:
-    st.error("❌ Could not load or parse the Google Sheet.")
-    st.exception(e)
+# ====== Footer ======
+st.markdown("---")
+st.markdown("Made with ❤️ by Yousuf | taamoul.streamlit.app")
